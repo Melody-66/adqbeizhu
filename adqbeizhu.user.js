@@ -3,8 +3,10 @@
 // @namespace    http://tampermonkey.net/
 // @version      0.2
 // @description  根据页面特定元素内容修改网页标题
-// @author       你
+// @author       Melody-66
 // @match        https://ad.qq.com/*
+// @updateURL    https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/adqbeizhu.user.js
+// @downloadURL  https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/adqbeizhu.user.js
 // @grant        none
 // ==/UserScript==
 
