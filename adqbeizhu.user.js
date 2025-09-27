@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        ADQ账户备注显示（修复版）
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      0.3
 // @description  根据页面特定元素内容修改网页标题
 // @author       Melody-66
 // @match        https://ad.qq.com/*
@@ -82,17 +82,30 @@
         const targetXPath = "/html/body/div[1]/div/header/div[1]/div[2]/ul[2]/li[7]/a/div/small/span/text()[2]";
         const content = getElementTextByXPath(targetXPath);
 
-        // 如果找到匹配的内容，则设置对应的标题
-        if (content && contentMappings.hasOwnProperty(content)) {
-            const newTitle = contentMappings[content];
+        // 如果找到了内容
+        if (content) {
+            let newTitle;
+            
+            // 检查是否有对应的映射关系
+            if (contentMappings.hasOwnProperty(content)) {
+                newTitle = contentMappings[content];
+                console.log(`检测到内容 "${content}"，标题已修改为 "${newTitle}"`);
+            } else {
+                newTitle = "新账户暂无备注";
+                console.log(`检测到新内容 "${content}"，无对应映射关系，标题显示为 "${newTitle}"`);
+            }
+
+            // 如果标题需要更新
             if (document.title !== newTitle) {
                 isSettingTitle = true;
                 document.title = newTitle;
-                console.log(`检测到内容 "${content}"，标题已修改为 "${newTitle}"`);
                 // 短暂延迟后重置标志
                 setTimeout(() => { isSettingTitle = false; }, 100);
                 return true;
             }
+        } else {
+            // 如果没有找到内容，保持原标题不变
+            console.log("未检测到目标内容，保持原标题");
         }
 
         return false;
@@ -117,7 +130,7 @@
                     console.log("未找到目标元素，停止重试");
                 }
             }
-        }, 5000); // 改为2秒一次，减少性能消耗
+        }, 5000);
 
         return false;
     }
