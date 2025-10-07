@@ -1,0 +1,198 @@
+// ==UserScript==
+// @name         腾讯广告点击率计算器
+// @namespace    http://tampermonkey.net/
+// @version      1.6
+// @description  自动识别点击次数和广告组件点击次数列并计算点击率
+// @author       You
+// @match        https://ad.qq.com/atlas/*
+// @grant        none
+// @run-at       document-end
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    let hasExecuted = false;
+    let clickColumn = null;
+    let componentClickColumn = null;
+
+    function init() {
+        if (hasExecuted) {
+            return;
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(identifyColumnsAndCalculate, 1500);
+            });
+        } else {
+            setTimeout(identifyColumnsAndCalculate, 1500);
+        }
+
+        setupMutationObserver();
+        hasExecuted = true;
+    }
+
+    function setupMutationObserver() {
+        const observer = new MutationObserver(function(mutations) {
+            setTimeout(identifyColumnsAndCalculate, 1000);
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    function identifyColumnsAndCalculate() {
+        // 先识别表头，确定列的位置
+        if (clickColumn === null || componentClickColumn === null) {
+            identifyColumns();
+        }
+        
+        // 如果成功识别到列，则进行计算
+        if (clickColumn !== null && componentClickColumn !== null) {
+            calculateAndDisplayAllRatios();
+        } else {
+            console.log('未找到所需的列，将在1秒后重试');
+            setTimeout(identifyColumnsAndCalculate, 1000);
+        }
+    }
+
+    function identifyColumns() {
+        // 查找表头行
+        const headerRow = document.querySelector('table thead tr') || 
+                         document.querySelector('table th')?.closest('tr') ||
+                         document.evaluate("//th", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue?.closest('tr');
+
+        if (!headerRow) {
+            console.log('未找到表头行');
+            return;
+        }
+
+        // 获取所有表头单元格
+        const headerCells = headerRow.querySelectorAll('th, td');
+        let foundClick = false;
+        let foundComponentClick = false;
+
+        // 遍历表头单元格，查找目标列
+        for (let i = 0; i < headerCells.length; i++) {
+            const cell = headerCells[i];
+            const text = cell.textContent.trim();
+            
+            if (text === '点击次数' || text === '点击' || text.includes('点击')) {
+                clickColumn = i + 1; // nth-child从1开始
+                foundClick = true;
+                console.log(`找到点击次数列: 第${clickColumn}列`);
+            }
+            
+            if (text === '广告组件点击次数' || text === '组件点击' || text.includes('广告组件') || text.includes('组件点击')) {
+                componentClickColumn = i + 1;
+                foundComponentClick = true;
+                console.log(`找到广告组件点击次数列: 第${componentClickColumn}列`);
+            }
+        }
+
+        // 如果没找到精确匹配，尝试模糊匹配
+        if (!foundClick) {
+            for (let i = 0; i < headerCells.length; i++) {
+                const cell = headerCells[i];
+                const text = cell.textContent.trim();
+                if (text.includes('点击') && !text.includes('率')) {
+                    clickColumn = i + 1;
+                    foundClick = true;
+                    console.log(`模糊匹配到点击次数列: 第${clickColumn}列`);
+                    break;
+                }
+            }
+        }
+
+        if (!foundComponentClick) {
+            for (let i = 0; i < headerCells.length; i++) {
+                const cell = headerCells[i];
+                const text = cell.textContent.trim();
+                if ((text.includes('组件') && text.includes('点击')) || text.includes('广告组件')) {
+                    componentClickColumn = i + 1;
+                    foundComponentClick = true;
+                    console.log(`模糊匹配到广告组件点击次数列: 第${componentClickColumn}列`);
+                    break;
+                }
+            }
+        }
+
+        if (foundClick && foundComponentClick) {
+            console.log(`列识别完成: 点击次数-第${clickColumn}列, 广告组件点击次数-第${componentClickColumn}列`);
+        } else {
+            console.log('列识别失败，请检查表头内容');
+        }
+    }
+
+    function calculateAndDisplayAllRatios() {
+        // 清除之前的结果
+        const existingResults = document.querySelectorAll('[data-ratio-calculator]');
+        existingResults.forEach(result => result.remove());
+
+        // 查找表格中的所有数据行
+        const tableRows = document.querySelectorAll('table tbody tr');
+        
+        if (tableRows.length === 0) {
+            console.log('未找到表格数据行');
+            return;
+        }
+
+        console.log(`开始计算 ${tableRows.length} 行数据的点击率`);
+
+        tableRows.forEach((row, index) => {
+            // 获取点击次数和广告组件点击次数的单元格
+            const clickCell = row.querySelector(`td:nth-child(${clickColumn}) div`);
+            const componentClickCell = row.querySelector(`td:nth-child(${componentClickColumn}) div`);
+
+            if (clickCell && componentClickCell) {
+                const clickText = clickCell.textContent.trim();
+                const componentClickText = componentClickCell.textContent.trim();
+                
+                const clickValue = parseFloat(clickText.replace(/,/g, ''));
+                const componentClickValue = parseFloat(componentClickText.replace(/,/g, ''));
+
+                if (!isNaN(clickValue) && !isNaN(componentClickValue) && clickValue !== 0) {
+                    const ratio = componentClickValue / clickValue;
+                    displayRatio(componentClickCell, ratio, index);
+                } else {
+                    console.log(`第${index + 1}行数据无效: 点击=${clickValue}, 组件点击=${componentClickValue}`);
+                }
+            } else {
+                console.log(`第${index + 1}行未找到数据单元格`);
+            }
+        });
+    }
+
+    function displayRatio(referenceElement, ratio, rowIndex) {
+        const ratioContainer = document.createElement('span');
+        ratioContainer.setAttribute('data-ratio-calculator', 'true');
+        ratioContainer.setAttribute('data-row-index', rowIndex);
+        ratioContainer.style.cssText = `
+            margin-left: 8px;
+            padding: 2px 6px;
+            background-color: #fff0f0;
+            border: 1px solid #ffd1d1;
+            border-radius: 3px;
+            font-size: 11px;
+            color: #ff0000;
+            font-weight: bold;
+            display: inline-block;
+        `;
+
+        // 将比率转换为百分比，保留2位小数
+        const percentage = (ratio * 100).toFixed(2);
+        ratioContainer.textContent = `${percentage}%`;
+
+        // 直接插入到原有数据的后面
+        referenceElement.appendChild(ratioContainer);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
