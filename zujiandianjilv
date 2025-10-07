@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         腾讯广告点击率计算器
 // @namespace    http://tampermonkey.net/
-// @version      1.6
+// @version      1.61
 // @description  自动识别点击次数和广告组件点击次数列并计算点击率
-// @author       You
-// @match        https://ad.qq.com/atlas/*
+// @author       Melody-66
+// @match        https://ad.qq.com/*
+// @updateURL    https://raw.githubusercontent.com/Melody-66/adqbeizhu/refs/heads/main/zujiandianjilv.user.js
+// @downloadURL  https://raw.githubusercontent.com/Melody-66/adqbeizhu/refs/heads/main/zujiandianjilv.user.js
 // @grant        none
-// @run-at       document-end
 // ==/UserScript==
 
 (function() {
