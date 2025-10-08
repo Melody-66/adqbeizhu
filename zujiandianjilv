@@ -5,8 +5,8 @@
 // @description  自动识别点击次数和广告组件点击次数列并计算点击率
 // @author       Melody-66
 // @match        https://ad.qq.com/*
-// @updateURL    https://raw.githubusercontent.com/Melody-66/adqbeizhu/refs/heads/main/zujiandianjilv.user.js
-// @downloadURL  https://raw.githubusercontent.com/Melody-66/adqbeizhu/refs/heads/main/zujiandianjilv.user.js
+// @updateURL    https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/zujiandianjilv.user.js
+// @downloadURL  https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/zujiandianjilv.user.js
 // @grant        none
 // ==/UserScript==
 
