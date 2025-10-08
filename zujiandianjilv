@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         腾讯广告点击率计算器
 // @namespace    http://tampermonkey.net/
-// @version      1.68
+// @version      1.7
 // @description  自动识别点击次数和广告组件点击次数列并计算点击率
-// @author       Melody-66
-// @match        https://ad.qq.com/*
+// @author       You
+// @match        https://ad.qq.com/atlas/*
+// @grant        none
+// @run-at       document-end
 // @updateURL    https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/zujiandianjilv.user.js
 // @downloadURL  https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/zujiandianjilv.user.js
-// @grant        none
 // ==/UserScript==
 
 (function() {
@@ -67,45 +68,17 @@
         }
 
         const headerCells = headerRow.querySelectorAll('th, td');
-        let foundClick = false;
-        let foundComponentClick = false;
 
         for (let i = 0; i < headerCells.length; i++) {
             const cell = headerCells[i];
             const text = cell.textContent.trim();
             
-            if (text === '点击次数' || text === '点击' || text.includes('点击')) {
+            if (text === '点击次数') {
                 clickColumn = i + 1;
-                foundClick = true;
             }
             
-            if (text === '广告组件点击次数' || text === '组件点击' || text.includes('广告组件') || text.includes('组件点击')) {
+            if (text === '广告组件点击次数') {
                 componentClickColumn = i + 1;
-                foundComponentClick = true;
-            }
-        }
-
-        if (!foundClick) {
-            for (let i = 0; i < headerCells.length; i++) {
-                const cell = headerCells[i];
-                const text = cell.textContent.trim();
-                if (text.includes('点击') && !text.includes('率')) {
-                    clickColumn = i + 1;
-                    foundClick = true;
-                    break;
-                }
-            }
-        }
-
-        if (!foundComponentClick) {
-            for (let i = 0; i < headerCells.length; i++) {
-                const cell = headerCells[i];
-                const text = cell.textContent.trim();
-                if ((text.includes('组件') && text.includes('点击')) || text.includes('广告组件')) {
-                    componentClickColumn = i + 1;
-                    foundComponentClick = true;
-                    break;
-                }
             }
         }
     }
@@ -120,7 +93,7 @@
             return;
         }
 
-        tableRows.forEach((row, index) => {
+        tableRows.forEach((row, index) {
             const clickCell = row.querySelector(`td:nth-child(${clickColumn}) div`);
             const componentClickCell = row.querySelector(`td:nth-child(${componentClickColumn}) div`);
 
@@ -158,7 +131,7 @@
         const percentage = (ratio * 100).toFixed(2);
         ratioContainer.textContent = `${percentage}%`;
 
-        referenceElement.appendChild(ratioContainer);
+        referenceElement.parentNode.appendChild(ratioContainer);
     }
 
     if (document.readyState === 'loading') {
