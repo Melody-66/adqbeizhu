@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        ADQ账户备注显示（修复版）
 // @namespace    http://tampermonkey.net/
-// @version      0.3.3
+// @version      0.3.4
 // @description  根据页面特定元素内容修改网页标题
 // @author       Melody-66
 // @match        https://ad.qq.com/*
@@ -212,6 +212,7 @@
         setTimeout(init, 1000);
     }
 })();
+
 
 
 
