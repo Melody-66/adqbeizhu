@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         腾讯广告点击率计算器
+// @name         腾讯广告组件点击率计算2.1
 // @namespace    http://tampermonkey.net/
-// @version      1.7
-// @description  自动识别点击次数和广告组件点击次数列并计算点击率
+// @version      2.2
+// @description  计算广告组件点击率并显示在数据旁边
 // @author       You
 // @match        https://ad.qq.com/atlas/*
 // @grant        none
@@ -14,30 +14,160 @@
 (function() {
     'use strict';
 
-    let hasExecuted = false;
-    let clickColumn = null;
-    let componentClickColumn = null;
-
-    function init() {
-        if (hasExecuted) {
-            return;
-        }
-        
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function() {
-                setTimeout(identifyColumnsAndCalculate, 1500);
-            });
-        } else {
-            setTimeout(identifyColumnsAndCalculate, 1500);
+    function showAlert(message, type = 'error') {
+        // 移除现有的提醒
+        const existingAlert = document.getElementById('tm-click-rate-alert');
+        if (existingAlert) {
+            existingAlert.remove();
         }
 
-        setupMutationObserver();
-        hasExecuted = true;
+        const alertDiv = document.createElement('div');
+        alertDiv.id = 'tm-click-rate-alert';
+        alertDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            z-index: 10000;
+            max-width: 400px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-size: 14px;
+            ${type === 'error' ? 'background-color: #ff4444;' : 'background-color: #44ff44;'}
+        `;
+        alertDiv.textContent = message;
+
+        document.body.appendChild(alertDiv);
+
+        // 5秒后自动消失
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
     }
 
-    function setupMutationObserver() {
+    function calculateAndDisplay() {
+        try {
+            // 定义固定的XPath路径
+            const rowsXPath = "/html/body/div[1]/div/div/main/div/div[3]/div/div/div[2]/div/div[2]/div/table/tbody/tr";
+            const rows = document.evaluate(rowsXPath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+
+            if (rows.snapshotLength === 0) {
+                showAlert('未找到数据行，刷新页面或进入创意页面');
+                return;
+            }
+
+            let successCount = 0;
+            let totalRows = rows.snapshotLength;
+
+            for (let i = 0; i < rows.snapshotLength; i++) {
+                const row = rows.snapshotItem(i);
+
+                // 构建当前行的XPath
+                const rowClickXPath = `/html/body/div[1]/div/div/main/div/div[3]/div/div/div[2]/div/div[2]/div/table/tbody/tr[${i + 1}]/td[12]/div`;
+                const rowComponentClickXPath = `/html/body/div[1]/div/div/main/div/div[3]/div/div/div[2]/div/div[2]/div/table/tbody/tr[${i + 1}]/td[19]/div`;
+
+                // 获取当前行的数据
+                const clickElement = document.evaluate(rowClickXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                const componentClickElement = document.evaluate(rowComponentClickXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+                if (!clickElement && !componentClickElement) {
+                    continue;
+                }
+
+                if (!clickElement) {
+                    showAlert(`第${i + 1}行：未找到点击次数数据`);
+                    continue;
+                }
+
+                if (!componentClickElement) {
+                    showAlert(`第${i + 1}行：未找到广告组件点击次数数据`);
+                    continue;
+                }
+
+                // 检查是否已经显示过结果
+                if (componentClickElement.parentNode.querySelector('[data-click-rate]')) {
+                    successCount++;
+                    continue;
+                }
+
+                const clickText = clickElement.textContent.trim();
+                const componentClickText = componentClickElement.textContent.trim();
+
+                const clickValue = parseFloat(clickText.replace(/,/g, ''));
+                const componentClickValue = parseFloat(componentClickText.replace(/,/g, ''));
+
+                if (isNaN(clickValue)) {
+                    showAlert(`第${i + 1}行：点击次数不是有效数字 (${clickText})`);
+                    continue;
+                }
+
+                if (isNaN(componentClickValue)) {
+                    showAlert(`第${i + 1}行：广告组件点击次数不是有效数字 (${componentClickText})`);
+                    continue;
+                }
+
+                if (clickValue === 0) {
+                    showAlert(`第${i + 1}行：点击次数为0，无法计算比率`);
+                    continue;
+                }
+
+                const rate = (componentClickValue / clickValue * 100).toFixed(2);
+                displayRate(componentClickElement, rate);
+                successCount++;
+            }
+
+            if (successCount === 0) {
+                showAlert('未能成功计算任何数据，请检查页面结构是否变化');
+            } else if (successCount === totalRows) {
+                showAlert(`成功计算所有${totalRows}行数据的点击率`, 'success');
+            } else {
+                showAlert(`成功计算${successCount}/${totalRows}行数据的点击率`, 'success');
+            }
+
+        } catch (error) {
+            showAlert(`脚本执行出错: ${error.message}`);
+        }
+    }
+
+    function displayRate(referenceElement, rate) {
+        const rateSpan = document.createElement('span');
+        rateSpan.setAttribute('data-click-rate', 'true');
+        rateSpan.textContent = ` ${rate}%`;
+        rateSpan.style.cssText = `
+            color: #ff0000;
+            font-weight: bold;
+            font-size: 12px;
+            margin-left: 8px;
+            padding: 2px 6px;
+            background-color: #fff0f0;
+            border: 1px solid #ffd1d1;
+            border-radius: 3px;
+        `;
+
+        referenceElement.parentNode.appendChild(rateSpan);
+    }
+
+    // 页面加载后执行
+    function init() {
+        // 延迟执行确保页面加载完成
+        setTimeout(calculateAndDisplay, 2000);
+
+        // 监听页面变化（适用于动态加载的页面）
         const observer = new MutationObserver(function(mutations) {
-            setTimeout(identifyColumnsAndCalculate, 1000);
+            let shouldRecalculate = false;
+            for (let mutation of mutations) {
+                if (mutation.addedNodes.length > 0) {
+                    shouldRecalculate = true;
+                    break;
+                }
+            }
+            if (shouldRecalculate) {
+                setTimeout(calculateAndDisplay, 1000);
+            }
         });
 
         observer.observe(document.body, {
@@ -46,94 +176,7 @@
         });
     }
 
-    function identifyColumnsAndCalculate() {
-        if (clickColumn === null || componentClickColumn === null) {
-            identifyColumns();
-        }
-        
-        if (clickColumn !== null && componentClickColumn !== null) {
-            calculateAndDisplayAllRatios();
-        } else {
-            setTimeout(identifyColumnsAndCalculate, 1000);
-        }
-    }
-
-    function identifyColumns() {
-        const headerRow = document.querySelector('table thead tr') || 
-                         document.querySelector('table th')?.closest('tr') ||
-                         document.evaluate("//th", document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue?.closest('tr');
-
-        if (!headerRow) {
-            return;
-        }
-
-        const headerCells = headerRow.querySelectorAll('th, td');
-
-        for (let i = 0; i < headerCells.length; i++) {
-            const cell = headerCells[i];
-            const text = cell.textContent.trim();
-            
-            if (text === '点击次数') {
-                clickColumn = i + 1;
-            }
-            
-            if (text === '广告组件点击次数') {
-                componentClickColumn = i + 1;
-            }
-        }
-    }
-
-    function calculateAndDisplayAllRatios() {
-        const existingResults = document.querySelectorAll('[data-ratio-calculator]');
-        existingResults.forEach(result => result.remove());
-
-        const tableRows = document.querySelectorAll('table tbody tr');
-        
-        if (tableRows.length === 0) {
-            return;
-        }
-
-        tableRows.forEach((row, index) {
-            const clickCell = row.querySelector(`td:nth-child(${clickColumn}) div`);
-            const componentClickCell = row.querySelector(`td:nth-child(${componentClickColumn}) div`);
-
-            if (clickCell && componentClickCell) {
-                const clickText = clickCell.textContent.trim();
-                const componentClickText = componentClickCell.textContent.trim();
-                
-                const clickValue = parseFloat(clickText.replace(/,/g, ''));
-                const componentClickValue = parseFloat(componentClickText.replace(/,/g, ''));
-
-                if (!isNaN(clickValue) && !isNaN(componentClickValue) && clickValue !== 0) {
-                    const ratio = componentClickValue / clickValue;
-                    displayRatio(componentClickCell, ratio, index);
-                }
-            }
-        });
-    }
-
-    function displayRatio(referenceElement, ratio, rowIndex) {
-        const ratioContainer = document.createElement('span');
-        ratioContainer.setAttribute('data-ratio-calculator', 'true');
-        ratioContainer.setAttribute('data-row-index', rowIndex);
-        ratioContainer.style.cssText = `
-            margin-left: 8px;
-            padding: 2px 6px;
-            background-color: #fff0f0;
-            border: 1px solid #ffd1d1;
-            border-radius: 3px;
-            font-size: 11px;
-            color: #ff0000;
-            font-weight: bold;
-            display: inline-block;
-        `;
-
-        const percentage = (ratio * 100).toFixed(2);
-        ratioContainer.textContent = `${percentage}%`;
-
-        referenceElement.parentNode.appendChild(ratioContainer);
-    }
-
+    // 启动脚本
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
