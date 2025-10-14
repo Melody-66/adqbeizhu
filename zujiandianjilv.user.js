@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         腾讯广告数据计算器
 // @namespace    http://tampermonkey.net/
-// @version      2.7.1
-// @description  计算广告组件点击率和一键起量消耗占比
+// @version      2.8.0
+// @description  计算广告组件点击率、一键起量消耗占比和转化率
 // @author       You
 // @match        https://ad.qq.com/atlas/*
 // @grant        none
@@ -18,6 +18,8 @@
     let componentClickColumn = null;
     let costColumn = null;
     let quickSpendColumn = null;
+    let targetConversionColumn = null;
+    let quickTargetConversionColumn = null;
 
     function identifyColumns() {
         const headerRow = document.querySelector('table thead tr') || 
@@ -33,6 +35,8 @@
         let foundComponentClick = false;
         let foundCost = false;
         let foundQuickSpend = false;
+        let foundTargetConversion = false;
+        let foundQuickTargetConversion = false;
 
         for (let i = 0; i < headerCells.length; i++) {
             const cell = headerCells[i];
@@ -57,9 +61,19 @@
                 quickSpendColumn = i + 1;
                 foundQuickSpend = true;
             }
+            
+            if (text === '目标转化量') {
+                targetConversionColumn = i + 1;
+                foundTargetConversion = true;
+            }
+            
+            if (text === '一键起量目标转化量') {
+                quickTargetConversionColumn = i + 1;
+                foundQuickTargetConversion = true;
+            }
         }
 
-        return foundClick && foundComponentClick && foundCost && foundQuickSpend;
+        return foundClick && foundComponentClick && foundCost && foundQuickSpend && foundTargetConversion && foundQuickTargetConversion;
     }
 
     function getTableBasePath() {
@@ -86,7 +100,7 @@
             return;
         }
 
-        if (clickColumn === null || componentClickColumn === null || costColumn === null || quickSpendColumn === null) {
+        if (clickColumn === null || componentClickColumn === null || costColumn === null || quickSpendColumn === null || targetConversionColumn === null || quickTargetConversionColumn === null) {
             const success = identifyColumns();
             if (!success) {
                 setTimeout(calculateAndDisplay, 3000);
@@ -106,11 +120,17 @@
             const rowCostXPath = `${tableBasePath}/tbody/tr[${i + 1}]/td[${costColumn}]/div`;
             const rowQuickSpendXPath = `${tableBasePath}/tbody/tr[${i + 1}]/td[${quickSpendColumn}]/div`;
 
+            const rowTargetConversionXPath = `${tableBasePath}/tbody/tr[${i + 1}]/td[${targetConversionColumn}]/div`;
+            const rowQuickTargetConversionXPath = `${tableBasePath}/tbody/tr[${i + 1}]/td[${quickTargetConversionColumn}]/div`;
+
             const clickElement = document.evaluate(rowClickXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
             const componentClickElement = document.evaluate(rowComponentClickXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 
             const costElement = document.evaluate(rowCostXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
             const quickSpendElement = document.evaluate(rowQuickSpendXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+
+            const targetConversionElement = document.evaluate(rowTargetConversionXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            const quickTargetConversionElement = document.evaluate(rowQuickTargetConversionXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 
             if (clickElement && componentClickElement) {
                 if (!componentClickElement.parentNode.querySelector('[data-click-rate]')) {
@@ -141,23 +161,50 @@
                     }
                 }
             }
+
+            if (targetConversionElement && quickTargetConversionElement) {
+                if (!quickTargetConversionElement.parentNode.querySelector('[data-quick-conversion-rate]')) {
+                    const targetConversionText = targetConversionElement.textContent.trim();
+                    const quickTargetConversionText = quickTargetConversionElement.textContent.trim();
+                    
+                    const targetConversionValue = parseFloat(targetConversionText.replace(/,/g, ''));
+                    const quickTargetConversionValue = parseFloat(quickTargetConversionText.replace(/,/g, ''));
+
+                    if (!isNaN(targetConversionValue) && !isNaN(quickTargetConversionValue) && targetConversionValue !== 0) {
+                        const rate = (quickTargetConversionValue / targetConversionValue * 100).toFixed(2);
+                        displayRate(quickTargetConversionElement, rate, 'quick-conversion-rate');
+                    }
+                }
+            }
         }
     }
 
     function displayRate(referenceElement, rate, type) {
         const rateSpan = document.createElement('span');
-        const isQuickSpend = type === 'quick-spend-rate';
+        let color = '#ff0000';
+        let backgroundColor = '#fff0f0';
+        let borderColor = '#ffd1d1';
+
+        if (type === 'quick-spend-rate') {
+            color = '#0066cc';
+            backgroundColor = '#f0f8ff';
+            borderColor = '#99ccff';
+        } else if (type === 'quick-conversion-rate') {
+            color = '#009900';
+            backgroundColor = '#f0fff0';
+            borderColor = '#99ff99';
+        }
         
         rateSpan.setAttribute(`data-${type}`, 'true');
         rateSpan.textContent = ` ${rate}%`;
         rateSpan.style.cssText = `
-            color: ${isQuickSpend ? '#0066cc' : '#ff0000'};
+            color: ${color};
             font-weight: bold;
             font-size: 12px;
             margin-left: 8px;
             padding: 2px 6px;
-            background-color: ${isQuickSpend ? '#f0f8ff' : '#fff0f0'};
-            border: 1px solid ${isQuickSpend ? '#99ccff' : '#ffd1d1'};
+            background-color: ${backgroundColor};
+            border: 1px solid ${borderColor};
             border-radius: 3px;
         `;
 
@@ -172,6 +219,8 @@
             componentClickColumn = null;
             costColumn = null;
             quickSpendColumn = null;
+            targetConversionColumn = null;
+            quickTargetConversionColumn = null;
             setTimeout(calculateAndDisplay, 1000);
         });
 
