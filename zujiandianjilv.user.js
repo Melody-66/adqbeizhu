@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      2.8.0
 // @description  计算广告组件点击率、一键起量消耗占比和转化率
-// @author       You
+// @author       Melody
 // @match        https://ad.qq.com/atlas/*
 // @grant        none
 // @run-at       document-end
