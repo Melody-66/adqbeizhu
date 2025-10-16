@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         腾讯广告数据计算器
 // @namespace    http://tampermonkey.net/
-// @version      2.8.1
+// @version      2.8.2
 // @description  计算广告组件点击率、一键起量消耗占比和转化率
 // @author       Melody
 // @match        https://ad.qq.com/atlas/*
@@ -141,7 +141,7 @@
                     const componentClickValue = parseFloat(componentClickText.replace(/,/g, ''));
 
                     if (!isNaN(clickValue) && !isNaN(componentClickValue) && clickValue !== 0) {
-                        const rate = (componentClickValue / clickValue * 100).toFixed(2);
+                        const rate = Math.round(componentClickValue / clickValue * 100);
                         displayRate(componentClickElement, rate, 'click-rate');
                     }
                 }
@@ -156,7 +156,7 @@
                     const quickSpendValue = parseFloat(quickSpendText.replace(/,/g, ''));
 
                     if (!isNaN(costValue) && !isNaN(quickSpendValue) && costValue !== 0) {
-                        const rate = (quickSpendValue / costValue * 100).toFixed(2);
+                        const rate = Math.round(quickSpendValue / costValue * 100);
                         displayRate(quickSpendElement, rate, 'quick-spend-rate');
                     }
                 }
@@ -171,7 +171,7 @@
                     const quickTargetConversionValue = parseFloat(quickTargetConversionText.replace(/,/g, ''));
 
                     if (!isNaN(targetConversionValue) && !isNaN(quickTargetConversionValue) && targetConversionValue !== 0) {
-                        const rate = (quickTargetConversionValue / targetConversionValue * 100).toFixed(2);
+                        const rate = Math.round(quickTargetConversionValue / targetConversionValue * 100);
                         displayRate(quickTargetConversionElement, rate, 'quick-conversion-rate');
                     }
                 }
