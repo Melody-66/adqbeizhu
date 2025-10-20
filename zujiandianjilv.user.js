@@ -2,7 +2,7 @@
 // @name         腾讯广告数据计算器
 // @namespace    http://tampermonkey.net/
 // @version      2.8.2
-// @description  计算广告组件点击率、一键起量消耗占比和转化率
+// @description  计算可转化点击率、一键起量消耗占比和转化率
 // @author       Melody
 // @match        https://ad.qq.com/atlas/*
 // @grant        none
@@ -15,7 +15,7 @@
     'use strict';
 
     let clickColumn = null;
-    let componentClickColumn = null;
+    let convertibleClickColumn = null;
     let costColumn = null;
     let quickSpendColumn = null;
     let targetConversionColumn = null;
@@ -32,7 +32,7 @@
 
         const headerCells = headerRow.querySelectorAll('th, td');
         let foundClick = false;
-        let foundComponentClick = false;
+        let foundConvertibleClick = false;
         let foundCost = false;
         let foundQuickSpend = false;
         let foundTargetConversion = false;
@@ -47,9 +47,9 @@
                 foundClick = true;
             }
             
-            if (text === '广告组件点击次数') {
-                componentClickColumn = i + 1;
-                foundComponentClick = true;
+            if (text === '可转化点击次数') {
+                convertibleClickColumn = i + 1;
+                foundConvertibleClick = true;
             }
             
             if (text === '花费') {
@@ -73,7 +73,7 @@
             }
         }
 
-        return foundClick && foundComponentClick && foundCost && foundQuickSpend && foundTargetConversion && foundQuickTargetConversion;
+        return foundClick && foundConvertibleClick && foundCost && foundQuickSpend && foundTargetConversion && foundQuickTargetConversion;
     }
 
     function getTableBasePath() {
@@ -100,7 +100,7 @@
             return;
         }
 
-        if (clickColumn === null || componentClickColumn === null || costColumn === null || quickSpendColumn === null || targetConversionColumn === null || quickTargetConversionColumn === null) {
+        if (clickColumn === null || convertibleClickColumn === null || costColumn === null || quickSpendColumn === null || targetConversionColumn === null || quickTargetConversionColumn === null) {
             const success = identifyColumns();
             if (!success) {
                 setTimeout(calculateAndDisplay, 3000);
@@ -115,7 +115,7 @@
             const row = rows.snapshotItem(i);
             
             const rowClickXPath = `${tableBasePath}/tbody/tr[${i + 1}]/td[${clickColumn}]/div`;
-            const rowComponentClickXPath = `${tableBasePath}/tbody/tr[${i + 1}]/td[${componentClickColumn}]/div`;
+            const rowConvertibleClickXPath = `${tableBasePath}/tbody/tr[${i + 1}]/td[${convertibleClickColumn}]/div`;
 
             const rowCostXPath = `${tableBasePath}/tbody/tr[${i + 1}]/td[${costColumn}]/div`;
             const rowQuickSpendXPath = `${tableBasePath}/tbody/tr[${i + 1}]/td[${quickSpendColumn}]/div`;
@@ -124,7 +124,7 @@
             const rowQuickTargetConversionXPath = `${tableBasePath}/tbody/tr[${i + 1}]/td[${quickTargetConversionColumn}]/div`;
 
             const clickElement = document.evaluate(rowClickXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-            const componentClickElement = document.evaluate(rowComponentClickXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+            const convertibleClickElement = document.evaluate(rowConvertibleClickXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 
             const costElement = document.evaluate(rowCostXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
             const quickSpendElement = document.evaluate(rowQuickSpendXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
@@ -132,17 +132,17 @@
             const targetConversionElement = document.evaluate(rowTargetConversionXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
             const quickTargetConversionElement = document.evaluate(rowQuickTargetConversionXPath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
 
-            if (clickElement && componentClickElement) {
-                if (!componentClickElement.parentNode.querySelector('[data-click-rate]')) {
+            if (clickElement && convertibleClickElement) {
+                if (!convertibleClickElement.parentNode.querySelector('[data-click-rate]')) {
                     const clickText = clickElement.textContent.trim();
-                    const componentClickText = componentClickElement.textContent.trim();
+                    const convertibleClickText = convertibleClickElement.textContent.trim();
                     
                     const clickValue = parseFloat(clickText.replace(/,/g, ''));
-                    const componentClickValue = parseFloat(componentClickText.replace(/,/g, ''));
+                    const convertibleClickValue = parseFloat(convertibleClickText.replace(/,/g, ''));
 
-                    if (!isNaN(clickValue) && !isNaN(componentClickValue) && clickValue !== 0) {
-                        const rate = Math.round(componentClickValue / clickValue * 100);
-                        displayRate(componentClickElement, rate, 'click-rate');
+                    if (!isNaN(clickValue) && !isNaN(convertibleClickValue) && clickValue !== 0) {
+                        const rate = Math.round(convertibleClickValue / clickValue * 100);
+                        displayRate(convertibleClickElement, rate, 'click-rate');
                     }
                 }
             }
@@ -216,7 +216,7 @@
         
         const observer = new MutationObserver(function() {
             clickColumn = null;
-            componentClickColumn = null;
+            convertibleClickColumn = null;
             costColumn = null;
             quickSpendColumn = null;
             targetConversionColumn = null;
