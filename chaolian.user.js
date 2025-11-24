@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        ADQ客户工作台超链
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  制作超链按钮快速打开对应账户和广告
 // @author       Melody-66
 // @match        https://ad.qq.com/cm/promotion
