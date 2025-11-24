@@ -4,7 +4,7 @@
 // @version      1.0
 // @description  制作超链按钮快速打开对应账户和广告
 // @author       Melody-66
-// @match        https://ad.qq.com/cm/*
+// @match        https://ad.qq.com/cm/promotion
 // @updateURL    https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/chaolian.user.js
 // @downloadURL  https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/chaolian.user.js
 // @grant        none
