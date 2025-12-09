@@ -1,0 +1,98 @@
+// ==UserScript==
+// @name         KS 自定义报表 ROI 高亮（支持翻页）
+// @namespace    http://tampermonkey.net/
+// @version      1.2
+// @description  自动高亮全站直接ROI低于1的行，并在翻页/过滤/切换条数后自动刷新
+// @match        https://luopan.e.kuaishou.com/analysis/custom-report-view*
+// @updateURL    https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/KSROI
+// @downloadURL  https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/KSROI
+// @grant        none
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    const TARGET_HEADER_TEXT = "全站直接ROI";   // 目标列名称
+
+    // 统一清除所有旧样式（非常关键）
+    function clearOldStyles(table) {
+        if (!table) return;
+        table.querySelectorAll("td").forEach(td => {
+            td.style.backgroundColor = "";
+            td.style.color = "";
+            td.style.fontWeight = "";
+            td.style.borderRadius = "";
+        });
+    }
+
+    // 查找表格
+    function getTable() {
+        return document.querySelector("table");
+    }
+
+    // 执行高亮逻辑
+    function highlightROI() {
+        const table = getTable();
+        if (!table) return;
+
+        // 先清除上一次翻页/刷新留下的标记
+        clearOldStyles(table);
+
+        const headerCells = table.querySelectorAll("thead tr th");
+        let roiIndex = -1;
+
+        // 根据列名找列的位置
+        headerCells.forEach((th, idx) => {
+            const text = th.innerText.trim();
+            if (text.includes(TARGET_HEADER_TEXT)) {
+                roiIndex = idx;
+            }
+        });
+
+        if (roiIndex === -1) return;
+
+        // 遍历每一行
+        const rows = table.querySelectorAll("tbody tr");
+        rows.forEach(row => {
+            const cells = row.querySelectorAll("td");
+            const cell = cells[roiIndex];
+            if (!cell) return;
+
+            // 取数字
+            let value = parseFloat(cell.innerText.trim());
+            if (isNaN(value)) return;
+
+            if (value < 1) {
+                cell.style.backgroundColor = "rgba(255, 0, 0, 0.25)";
+                cell.style.color = "#b00000";
+                cell.style.fontWeight = "bold";
+                cell.style.borderRadius = "4px";
+            }
+        });
+    }
+
+    // DOM 监听（翻页/切换条数/筛选/滚动加载都会触发）
+    function observeTable() {
+        const observer = new MutationObserver(() => {
+            highlightROI();
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    // 表格出现后开始工作
+    function waitForTable() {
+        const t = getTable();
+        if (t) {
+            highlightROI();
+            observeTable();
+            return;
+        }
+        requestAnimationFrame(waitForTable);
+    }
+
+    waitForTable();
+})();
