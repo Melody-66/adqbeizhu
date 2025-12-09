@@ -1,0 +1,316 @@
+// ==UserScript==
+// @name         快手罗盘账户ID提取按钮
+// @namespace    http://tampermonkey.net/
+// @version      3.4
+// @description  提取快手罗盘报表中的账户ID并生成按钮
+// @author       Melody-66
+// @match        https://luopan.e.kuaishou.com/analysis/custom-report-view?reportId=*
+// @updateURL    https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/kuaishubaobiao
+// @downloadURL  https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/kuaishubaobiao
+// @grant        none
+// @run-at       document-end
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    const CONFIG = {
+        debug: true
+    };
+
+    let isProcessing = false;
+    let tableObserver = null;
+
+    function log(...args) {
+        if (CONFIG.debug) {
+            console.log('[快手罗盘]', ...args);
+        }
+    }
+
+    function init() {
+        log('脚本初始化');
+        
+        if (tableObserver) {
+            tableObserver.disconnect();
+        }
+        
+        addGlobalStyles();
+        
+        setTimeout(() => {
+            processAllTables();
+            setupTableObserver();
+        }, 1500);
+        
+        setupPaginationListeners();
+    }
+
+    async function processAllTables() {
+        if (isProcessing) {
+            log('正在处理中，跳过');
+            return;
+        }
+        
+        isProcessing = true;
+        console.log('🚀 开始处理表格数据...');
+        
+        try {
+            const table = document.querySelector('.custom-area-table-content .ant-table-wrapper table');
+            if (!table) {
+                log('未找到表格');
+                return;
+            }
+            
+            cleanupOldButtons();
+            processTable(table);
+            log('✅ 表格处理完成');
+        } catch (error) {
+            log('❌ 处理表格时出错:', error);
+        } finally {
+            isProcessing = false;
+        }
+    }
+
+    function cleanupOldButtons() {
+        log('🧹 清理旧按钮');
+        
+        const oldButtons = document.querySelectorAll('.account-link-btn[data-script-added="true"]');
+        oldButtons.forEach(btn => {
+            btn.remove();
+        });
+        
+        log(`清理了 ${oldButtons.length} 个旧按钮`);
+    }
+
+    function processTable(table) {
+        const rows = table.querySelectorAll('tbody tr');
+        log(`找到 ${rows.length} 行数据`);
+        
+        if (rows.length <= 1) {
+            log('表格数据不足');
+            return;
+        }
+        
+        let processedCount = 0;
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            
+            if (row.querySelector('td[colspan]')) {
+                continue;
+            }
+            
+            const accountId = extractAccountIdFromRow(row);
+            if (accountId) {
+                if (addAccountLinkToRow(row, accountId)) {
+                    processedCount++;
+                }
+            }
+        }
+        
+        log(`处理完成: ${processedCount}个账户按钮`);
+    }
+
+    function extractAccountIdFromRow(row) {
+        const accountIdDiv = row.querySelector('td:nth-child(2) .custom-area-table-account-id');
+        
+        if (accountIdDiv) {
+            const match = accountIdDiv.textContent.match(/ID:\s*(\d+)/);
+            if (match) {
+                return match[1];
+            }
+        }
+        
+        const secondCell = row.querySelector('td:nth-child(2)');
+        if (secondCell) {
+            const text = secondCell.textContent || '';
+            const idMatch = text.match(/\b\d{6,}\b/);
+            if (idMatch) {
+                return idMatch[0];
+            }
+        }
+        
+        return null;
+    }
+
+    function addAccountLinkToRow(row, accountId) {
+        const accountCell = row.querySelector('td:nth-child(2)');
+        if (!accountCell) return false;
+        
+        const existingButton = accountCell.querySelector('.account-link-btn');
+        if (existingButton) {
+            if (existingButton.dataset.accountId !== accountId) {
+                existingButton.href = `https://niu.e.kuaishou.com/superManage?marketingObjective=1&superManageVersion=3&__accountId__=${accountId}`;
+                existingButton.dataset.accountId = accountId;
+                existingButton.title = `跳转到账户 ${accountId} 的超级管理页面`;
+                log(`更新账户按钮: ${accountId}`);
+            }
+            return false;
+        }
+        
+        const linkButton = createAccountLinkButton(accountId);
+        const accountIdElement = accountCell.querySelector('.custom-area-table-account-id');
+        
+        if (accountIdElement) {
+            accountIdElement.insertAdjacentHTML('afterend', ' ');
+            accountIdElement.insertAdjacentElement('afterend', linkButton);
+        } else {
+            accountCell.insertAdjacentHTML('beforeend', ' ');
+            accountCell.appendChild(linkButton);
+        }
+        
+        log(`添加账户按钮: ${accountId}`);
+        return true;
+    }
+
+    function createAccountLinkButton(accountId) {
+        const linkButton = document.createElement('a');
+        linkButton.href = `https://niu.e.kuaishou.com/superManage?marketingObjective=1&superManageVersion=3&__accountId__=${accountId}`;
+        linkButton.target = '_blank';
+        linkButton.className = 'account-link-btn';
+        linkButton.textContent = '账户';
+        linkButton.title = `跳转到账户 ${accountId} 的超级管理页面`;
+        linkButton.dataset.accountId = accountId;
+        linkButton.dataset.scriptAdded = "true";
+        
+        applyButtonStyles(linkButton);
+        
+        return linkButton;
+    }
+
+    function applyButtonStyles(button) {
+        Object.assign(button.style, {
+            display: 'inline-block',
+            padding: '2px 6px',
+            backgroundColor: '#1890ff',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '3px',
+            fontSize: '11px',
+            fontWeight: 'normal',
+            cursor: 'pointer',
+            border: 'none',
+            transition: 'all 0.2s ease',
+            marginLeft: '4px',
+            lineHeight: '1.2',
+            verticalAlign: 'baseline',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+            whiteSpace: 'nowrap',
+            textAlign: 'center',
+            minWidth: '32px'
+        });
+        
+        button.addEventListener('mouseenter', () => {
+            button.style.backgroundColor = '#40a9ff';
+            button.style.transform = 'translateY(-1px)';
+        });
+        
+        button.addEventListener('mouseleave', () => {
+            button.style.backgroundColor = '#1890ff';
+            button.style.transform = 'translateY(0)';
+        });
+    }
+
+    function setupTableObserver() {
+        log('设置表格变化观察器...');
+        
+        const tableContainer = document.querySelector('.custom-area-table-content');
+        if (!tableContainer) {
+            setTimeout(setupTableObserver, 1000);
+            return;
+        }
+        
+        const tbody = tableContainer.querySelector('tbody');
+        if (!tbody) {
+            setTimeout(setupTableObserver, 1000);
+            return;
+        }
+        
+        if (tableObserver) {
+            tableObserver.disconnect();
+        }
+        
+        tableObserver = new MutationObserver(function(mutations) {
+            let shouldProcess = false;
+            
+            for (const mutation of mutations) {
+                if (mutation.type === 'childList') {
+                    for (const node of mutation.addedNodes) {
+                        if (node.nodeType === 1 && node.tagName === 'TR') {
+                            shouldProcess = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (shouldProcess) {
+                log('检测到表格行变化');
+                clearTimeout(window.debounceTimer);
+                window.debounceTimer = setTimeout(() => {
+                    if (!isProcessing) {
+                        processAllTables();
+                    }
+                }, 800);
+            }
+        });
+        
+        tableObserver.observe(tbody, {
+            childList: true,
+            subtree: false
+        });
+        
+        log('表格变化观察器已启动');
+    }
+
+    function setupPaginationListeners() {
+        log('设置分页监听器...');
+        
+        document.addEventListener('click', function(event) {
+            const target = event.target;
+            
+            const isPaginationClick = 
+                target.closest('.ant-pagination-item') ||
+                target.closest('.ant-pagination-prev') ||
+                target.closest('.ant-pagination-next') ||
+                target.closest('.ant-pagination-jump-prev') ||
+                target.closest('.ant-pagination-jump-next');
+            
+            if (isPaginationClick) {
+                log('🎯 检测到分页操作');
+                
+                setTimeout(() => {
+                    log('开始处理新页面数据');
+                    processAllTables();
+                }, 800);
+            }
+        });
+        
+        log('分页监听器已设置');
+    }
+
+    function addGlobalStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            .custom-area-table-cell-with-content {
+                white-space: nowrap !important;
+            }
+            
+            .account-link-btn {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                vertical-align: baseline !important;
+                flex-shrink: 0 !important;
+            }
+        `;
+        document.head.appendChild(style);
+        log('全局样式已添加');
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(init, 1000);
+        });
+    } else {
+        setTimeout(init, 1000);
+    }
+
+})();
