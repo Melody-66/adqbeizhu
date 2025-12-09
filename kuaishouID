@@ -1,0 +1,89 @@
+// ==UserScript==
+// @name         快手广告后台标签重命名
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  根据账户ID重命名快手广告后台网页标签
+// @author       Melody-66
+// @match        https://niu.e.kuaishou.com/*
+// @updateURL    https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/kuaishouID
+// @downloadURL  https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/kuaishouID
+// @run-at       document-start
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // 账户ID与名称的映射关系
+    const accountMapping = {
+        '90758263': '胡3',
+        '90758261': '胡2',
+        '90562974': '李2',
+        '90562971': '李1',
+        '90562975': '李3',
+        '90562972': '胡1',
+        '90562973': '李4',
+        '90758264': '李5',
+        '90758265': '胡4',
+        '90758262': '胡5',
+    };
+
+    // 获取URL中的accountId参数
+    function getAccountIdFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('__accountId__');
+    }
+
+    // 提取URL路径中的accountId（备用方法）
+    function extractAccountIdFromUrl() {
+        const url = window.location.href;
+        const match = url.match(/__accountId__=(\d+)/);
+        return match ? match[1] : null;
+    }
+
+    // 更改网页标题
+    function updatePageTitle() {
+        // 尝试两种方式获取accountId
+        let accountId = getAccountIdFromUrl() || extractAccountIdFromUrl();
+
+        if (accountId && accountMapping[accountId]) {
+            const accountName = accountMapping[accountId];
+            // 设置新的网页标题
+            document.title = accountName;
+
+            // 监听DOM变化，确保标题不会被页面脚本重置
+            const observer = new MutationObserver(function(mutations) {
+                if (document.title !== accountName) {
+                    document.title = accountName;
+                }
+            });
+
+            // 开始观察document的title变化
+            observer.observe(document.querySelector('title'), {
+                childList: true,
+                characterData: true,
+                subtree: true
+            });
+
+            console.log(`页面标签已更改为: ${accountName} (账户ID: ${accountId})`);
+        } else if (accountId) {
+            console.log(`未找到账户ID ${accountId} 对应的名称映射`);
+        }
+    }
+
+    // 页面加载完成后执行
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', updatePageTitle);
+    } else {
+        updatePageTitle();
+    }
+
+    // 监听URL变化（适用于单页面应用）
+    let lastUrl = location.href;
+    new MutationObserver(() => {
+        const url = location.href;
+        if (url !== lastUrl) {
+            lastUrl = url;
+            setTimeout(updatePageTitle, 100); // 延迟执行以确保URL参数已更新
+        }
+    }).observe(document, {subtree: true, childList: true});
+})();
