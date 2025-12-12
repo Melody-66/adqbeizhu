@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         快手广告后台标签重命名
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  根据账户ID重命名快手广告后台网页标签
 // @author       Melody-66
 // @match        https://niu.e.kuaishou.com/*
@@ -25,6 +25,11 @@
         '90758264': '李5',
         '90758265': '胡4',
         '90758262': '胡5',
+        '92134156': '构赛1',
+        '92134158': '构赛2',
+        '92134155': '构赛3',
+        '92134154': '构赛4',
+        '92134157': '构赛5',
     };
 
     // 获取URL中的accountId参数
