@@ -1,0 +1,140 @@
+// ==UserScript==
+// @name         KS 自定义报表 ROI 高亮（支持翻页）
+// @namespace    http://tampermonkey.net/
+// @version      1.2
+// @description  自动高亮全站直接ROI低于1的行，并在翻页/过滤/切换条数后自动刷新
+// @match        https://luopan.e.kuaishou.com/analysis/custom-report-view*
+// @updateURL    https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/KSROI2
+// @downloadURL  https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/KSROI2
+// @grant        none
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    /* ================= 配置 ================= */
+    const ROI_HEADER = '全站直接ROI';
+    const VIDEO_HEADER_KEYWORD = '视频';
+    const PLAN_HEADER_KEYWORD = '广告计划';
+
+    const STORE_KEY =
+        'ks_checked_' + new Date().toISOString().slice(0, 10);
+
+    /* ================= 工具 ================= */
+    function getStore() {
+        return JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    }
+    function saveStore(data) {
+        localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    }
+    function getTable() {
+        return document.querySelector('table');
+    }
+
+    /* ================= 主处理逻辑 ================= */
+    function processTable() {
+        const table = getTable();
+        if (!table) return;
+
+        const ths = table.querySelectorAll('thead th');
+        let roiIdx = -1;
+        let videoIdx = -1;
+        let planIdx = -1;
+
+        ths.forEach((th, i) => {
+            const text = th.innerText.trim();
+            if (text.includes(ROI_HEADER)) roiIdx = i;
+            if (text.includes(VIDEO_HEADER_KEYWORD)) videoIdx = i;
+            if (text.includes(PLAN_HEADER_KEYWORD)) planIdx = i;
+        });
+
+        if (roiIdx < 0 || videoIdx < 0 || planIdx < 0) return;
+
+        const store = getStore();
+        const rows = table.querySelectorAll('tbody tr');
+
+        rows.forEach(row => {
+            const tds = row.querySelectorAll('td');
+            if (!tds[roiIdx] || !tds[videoIdx] || !tds[planIdx]) return;
+
+            /* -------- ROI 标记（只控制 class，不直接写样式） -------- */
+            const roiTd = tds[roiIdx];
+            roiTd.classList.remove('tm-roi-low');
+
+            const roiValue = parseFloat(roiTd.innerText.trim());
+            if (!isNaN(roiValue) && roiValue < 1) {
+                roiTd.classList.add('tm-roi-low');
+            }
+
+            /* -------- 行唯一 key（视频 × 广告计划） -------- */
+            const videoId =
+                tds[videoIdx].innerText.trim().split(/\s+/)[0];
+            const planId =
+                tds[planIdx].innerText.trim().split(/\s+/)[0];
+
+            if (!videoId || !planId) return;
+            const rowKey = videoId + '_' + planId;
+
+            /* -------- 勾选框 -------- */
+            let wrap = tds[videoIdx].querySelector('.tm-check-wrap');
+            if (!wrap) {
+                wrap = document.createElement('span');
+                wrap.className = 'tm-check-wrap';
+                wrap.style.marginRight = '6px';
+
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+
+                cb.addEventListener('change', () => {
+                    const s = getStore();
+                    if (cb.checked) s[rowKey] = 1;
+                    else delete s[rowKey];
+                    saveStore(s);
+                });
+
+                wrap.appendChild(cb);
+                tds[videoIdx].prepend(wrap);
+            }
+
+            const checkbox = wrap.querySelector('input');
+            checkbox.checked = !!store[rowKey];
+
+            row.style.background = checkbox.checked
+                ? 'rgba(0, 120, 255, 0.06)'
+                : '';
+        });
+    }
+
+    /* ================= 样式（关键修复点） ================= */
+    const style = document.createElement('style');
+    style.textContent = `
+/* ROI < 1 高亮 —— 不受任何 hover 影响 */
+td.tm-roi-low,
+td.tm-roi-low:hover,
+tr:hover td.tm-roi-low {
+    background-color: rgba(255, 0, 0, 0.28) !important;
+    color: #b00000 !important;
+    font-weight: bold !important;
+}
+`;
+    document.head.appendChild(style);
+
+    /* ================= DOM 监听 ================= */
+    const observer = new MutationObserver(() => {
+        processTable();
+    });
+
+    function start() {
+        if (!getTable()) {
+            requestAnimationFrame(start);
+            return;
+        }
+        processTable();
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    start();
+})();
