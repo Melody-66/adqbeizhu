@@ -12,129 +12,122 @@
 (function () {
     'use strict';
 
-    /* ================= 配置 ================= */
-    const ROI_HEADER = '全站直接ROI';
-    const VIDEO_HEADER_KEYWORD = '视频';
-    const PLAN_HEADER_KEYWORD = '广告计划';
+    const ROI_HEADER = "全站直接ROI";
+    const VIDEO_HEADER = "视频ID";
+    const PLAN_HEADER = "广告计划";
 
-    const STORE_KEY =
-        'ks_checked_' + new Date().toISOString().slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    const STORE_KEY = "ks_video_checked_" + today;
+    const checkedMap = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
 
-    /* ================= 工具 ================= */
-    function getStore() {
-        return JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+    function saveStore() {
+        localStorage.setItem(STORE_KEY, JSON.stringify(checkedMap));
     }
-    function saveStore(data) {
-        localStorage.setItem(STORE_KEY, JSON.stringify(data));
-    }
+
     function getTable() {
-        return document.querySelector('table');
+        return document.querySelector("table");
     }
 
-    /* ================= 主处理逻辑 ================= */
-    function processTable() {
+    function findColIndex(headers, keyword) {
+        for (let i = 0; i < headers.length; i++) {
+            if (headers[i].innerText && headers[i].innerText.includes(keyword)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function runLogic() {
         const table = getTable();
         if (!table) return;
 
-        const ths = table.querySelectorAll('thead th');
-        let roiIdx = -1;
-        let videoIdx = -1;
-        let planIdx = -1;
+        const headers = table.querySelectorAll("thead tr th");
+        if (!headers.length) return;
 
-        ths.forEach((th, i) => {
-            const text = th.innerText.trim();
-            if (text.includes(ROI_HEADER)) roiIdx = i;
-            if (text.includes(VIDEO_HEADER_KEYWORD)) videoIdx = i;
-            if (text.includes(PLAN_HEADER_KEYWORD)) planIdx = i;
-        });
+        const roiIndex = findColIndex(headers, ROI_HEADER);
+        const videoIndex = findColIndex(headers, VIDEO_HEADER);
+        const planIndex = findColIndex(headers, PLAN_HEADER);
 
-        if (roiIdx < 0 || videoIdx < 0 || planIdx < 0) return;
+        if (roiIndex === -1 || videoIndex === -1 || planIndex === -1) return;
 
-        const store = getStore();
-        const rows = table.querySelectorAll('tbody tr');
+        const rows = table.querySelectorAll("tbody tr");
 
         rows.forEach(row => {
-            const tds = row.querySelectorAll('td');
-            if (!tds[roiIdx] || !tds[videoIdx] || !tds[planIdx]) return;
+            const tds = row.querySelectorAll("td");
+            if (!tds.length) return;
 
-            /* -------- ROI 标记（只控制 class，不直接写样式） -------- */
-            const roiTd = tds[roiIdx];
-            roiTd.classList.remove('tm-roi-low');
+            const roiCell = tds[roiIndex];
+            const videoCell = tds[videoIndex];
+            const planCell = tds[planIndex];
 
-            const roiValue = parseFloat(roiTd.innerText.trim());
-            if (!isNaN(roiValue) && roiValue < 1) {
-                roiTd.classList.add('tm-roi-low');
+            /* ================= ROI 高亮（独立逻辑） ================= */
+            roiCell.removeAttribute("data-roi-marked");
+            roiCell.style.backgroundColor = "";
+            roiCell.style.color = "";
+            roiCell.style.fontWeight = "";
+
+            const roiVal = parseFloat(roiCell.innerText);
+            if (!isNaN(roiVal) && roiVal < 1) {
+                roiCell.style.backgroundColor = "rgba(255,0,0,0.25)";
+                roiCell.style.color = "#b00000";
+                roiCell.style.fontWeight = "bold";
+                roiCell.setAttribute("data-roi-marked", "1");
             }
 
-            /* -------- 行唯一 key（视频 × 广告计划） -------- */
-            const videoId =
-                tds[videoIdx].innerText.trim().split(/\s+/)[0];
-            const planId =
-                tds[planIdx].innerText.trim().split(/\s+/)[0];
+            /* ================= 视频勾选（不影响 ROI） ================= */
+            const videoText = videoCell.innerText.trim();
+            const planText = planCell.innerText.trim();
+            const rowKey = videoText + "__" + planText;
 
-            if (!videoId || !planId) return;
-            const rowKey = videoId + '_' + planId;
+            if (!videoCell.querySelector(".ks-video-check")) {
+                const cb = document.createElement("input");
+                cb.type = "checkbox";
+                cb.className = "ks-video-check";
+                cb.style.marginRight = "6px";
+                cb.checked = !!checkedMap[rowKey];
 
-            /* -------- 勾选框 -------- */
-            let wrap = tds[videoIdx].querySelector('.tm-check-wrap');
-            if (!wrap) {
-                wrap = document.createElement('span');
-                wrap.className = 'tm-check-wrap';
-                wrap.style.marginRight = '6px';
-
-                const cb = document.createElement('input');
-                cb.type = 'checkbox';
-
-                cb.addEventListener('change', () => {
-                    const s = getStore();
-                    if (cb.checked) s[rowKey] = 1;
-                    else delete s[rowKey];
-                    saveStore(s);
+                cb.addEventListener("change", () => {
+                    if (cb.checked) {
+                        checkedMap[rowKey] = 1;
+                        videoCell.style.color = "#d60000";
+                        videoCell.style.fontWeight = "bold";
+                    } else {
+                        delete checkedMap[rowKey];
+                        videoCell.style.color = "";
+                        videoCell.style.fontWeight = "";
+                    }
+                    saveStore();
                 });
 
-                wrap.appendChild(cb);
-                tds[videoIdx].prepend(wrap);
+                videoCell.prepend(cb);
             }
 
-            const checkbox = wrap.querySelector('input');
-            checkbox.checked = !!store[rowKey];
-
-            row.style.background = checkbox.checked
-                ? 'rgba(0, 120, 255, 0.06)'
-                : '';
+            if (checkedMap[rowKey]) {
+                videoCell.style.color = "#d60000";
+                videoCell.style.fontWeight = "bold";
+            }
         });
     }
 
-    /* ================= 样式（关键修复点） ================= */
-    const style = document.createElement('style');
-    style.textContent = `
-/* ROI < 1 高亮 —— 不受任何 hover 影响 */
-td.tm-roi-low,
-td.tm-roi-low:hover,
-tr:hover td.tm-roi-low {
-    background-color: rgba(255, 0, 0, 0.28) !important;
-    color: #b00000 !important;
-    font-weight: bold !important;
-}
-`;
-    document.head.appendChild(style);
-
-    /* ================= DOM 监听 ================= */
     const observer = new MutationObserver(() => {
-        processTable();
+        runLogic();
     });
 
-    function start() {
-        if (!getTable()) {
-            requestAnimationFrame(start);
-            return;
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    (function waitInit() {
+        if (getTable()) {
+            runLogic();
+        } else {
+            requestAnimationFrame(waitInit);
         }
-        processTable();
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-    }
+    })();
+
+})();
+
 
     start();
 })();
