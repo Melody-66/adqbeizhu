@@ -7,7 +7,6 @@
 // @updateURL    https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/KSROI2
 // @downloadURL  https://raw.githubusercontent.com/Melody-66/adqbeizhu/main/KSROI2
 // @grant        none
-// ==/UserScript==
 
 (function () {
     'use strict';
@@ -126,8 +125,4 @@
         }
     })();
 
-})();
-
-
-    start();
 })();
