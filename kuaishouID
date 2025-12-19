@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         快手广告后台标签重命名
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.21
 // @description  根据账户ID重命名快手广告后台网页标签
 // @author       Melody-66
 // @match        https://niu.e.kuaishou.com/*
@@ -34,8 +34,8 @@
         '93031882': '二',
         '93031878': '三',
         '93031881': '四',
-        '93031883': '五'，
-        '93031884': '六'，
+        '93031883': '五',
+        '93031884': '六',
     };
 
     // 获取URL中的accountId参数
